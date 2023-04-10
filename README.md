@@ -10,7 +10,7 @@
 
 #### 使用方式
 ```shell
-# Main Class : CDC2MSK
+# Main Class : CDC2AWSMSK
 # 本地调试参数
 -project_env local or prod # local表示本地运行，prod表示KDA运行
 -disable_chaining false or true # 是否禁用flink operator chaining 
@@ -35,5 +35,8 @@
 #### build
 ```sh
 mvn clean package -Dscope.type=provided
+
+# 编译好的JAR
+https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202304101313.jar
 ```
    

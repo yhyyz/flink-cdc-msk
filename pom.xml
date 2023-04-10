@@ -268,7 +268,7 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.aws.analytics.CDC2MSK</mainClass>
+                                    <mainClass>com.aws.analytics.CDC2AWSMSK</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
