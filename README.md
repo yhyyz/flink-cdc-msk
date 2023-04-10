@@ -1,9 +1,10 @@
 ### kda flink cdc to kafka
 
 * KDA Flink(VERSION=1.15)
-* Flink CDC DataStream API解析MySQL Binlog发送到Kafka  
+* Flink CDC DataStream API解析MySQL Binlog发送到Kafka，支持按库发送到不同Topic, 也可以发送到同一个Topic
 * 自定义FlinkKafkaPartitioner, 数据库名，表名，主键值三个拼接作为partition key, 保证相同主键的记录发送到Kafka的同一个分区，保证消息顺序。
 * Flink CDC支持增量快照算法，全局无锁，Batch阶段的checkpoint, 但需要表有主键，如果没有主键列增量快照算法就不可用，无法同步数据，需要设置scan.incremental.snapshot.enabled=false禁用增量快照
+* 当前只加入了MySQL
 
 #### 使用方式
 ```shell
