@@ -106,8 +106,6 @@ object CDC2AWSMSK {
         for (i <-pk.split("\\.")){
           if (op=="d"){
             pkValue.append(jsonElement.getAsJsonObject.get("before").getAsJsonObject.get(i).getAsString)
-            jsonElement.getAsJsonObject.remove("after")
-            jsonElement.getAsJsonObject.add("after",jsonElement.getAsJsonObject.get("before"))
           }else{
             pkValue.append(jsonElement.getAsJsonObject.get("after").getAsJsonObject.get(i).getAsString)
           }
