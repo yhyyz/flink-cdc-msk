@@ -1,6 +1,7 @@
 package com.aws.analytics
 
 import com.amazonaws.services.kinesisanalytics.runtime.KinesisAnalyticsRuntime
+import com.aws.analytics.MySQLCDC2AWSMSK.{createKafkaSink, gson}
 import com.aws.analytics.kafka.{CDCKafkaKeySerializationSchema, CDCKafkaValueSerializationSchema}
 import com.aws.analytics.model.CDCModel.CDCKafkaModel
 import com.aws.analytics.model.{CDCModel, ParamsModel}
@@ -22,6 +23,7 @@ import org.apache.logging.log4j.LogManager
 
 import java.util.Properties
 import com.google.gson.{GsonBuilder, JsonElement, JsonParser}
+import com.ververica.cdc.connectors.mongodb.source.MongoDBSource
 import org.apache.flink.api.common.restartstrategy.RestartStrategies
 import org.apache.flink.api.common.time.Time
 
@@ -33,9 +35,9 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks.{break, breakable}
 
-object CDC2AWSMSK {
-  private val log = LogManager.getLogger(CDC2AWSMSK.getClass)
-  private val gson = new GsonBuilder().serializeNulls().create
+object MongoCDC2AWSMSK {
+  private val log = LogManager.getLogger(MongoCDC2AWSMSK.getClass)
+//  private val gson = new GsonBuilder().serializeNulls().create
 
   def main(args: Array[String]) {
     // set up the streaming execution environment
@@ -56,8 +58,8 @@ object CDC2AWSMSK {
       }
       parameter = ParameterToolUtils.fromApplicationProperties(applicationProperties)
     }
-    val params = ParameterToolUtils.getCDC2MSKParams(parameter)
-    log.info("cdc2kafka: " + params.toString)
+    val params = ParameterToolUtils.getMongoCDC2MSKParams(parameter)
+    log.info("mongo cdc2kafka: " + params.toString)
     if (params.disableChaining=="true"){
         env.disableOperatorChaining()
     }
@@ -65,65 +67,46 @@ object CDC2AWSMSK {
       3,
       Time.seconds(10)
     ))
-
-    //[{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid"}]
-    val tablePKList = JsonParser.parseString(params.tablePK).getAsJsonArray.asList().toArray()
-    val tablePKMap =mutable.Map[String,String]()
-    for (item <- tablePKList){
-      val jsonEle =item.asInstanceOf[JsonElement]
-      val db = jsonEle.getAsJsonObject.get("db").getAsString
-      val table = jsonEle.getAsJsonObject.get("table").getAsString
-      val primary_key = jsonEle.getAsJsonObject.get("primary_key").getAsString
-      tablePKMap.put(db+"="+table,primary_key)
-    }
-    val tablePKMapKeyList = tablePKMap.keys.seq.toList.sortBy(- _.length)
 //    val chkConfig = env.getCheckpointConfig
 //    chkConfig.setExternalizedCheckpointCleanup(ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION)
 //    chkConfig.setCheckpointStorage(new FileSystemCheckpointStorage("file:///Users/chaopan/Desktop/checkpoint/"))
 
     //{"before":null,"after":{"pid":1,"pname":"prodcut-001","pprice":"125.12","create_time":"2023-02-14T03:16:38Z","modify_time":"2023-02-14T03:16:38Z"},"source":{"version":"1.6.4.Final","connector":"mysql","name":"mysql_binlog_source","ts_ms":1678634463000,"snapshot":"false","db":"test_db","sequence":null,"table":"product_01","server_id":57330068,"gtid":null,"file":"mysql-bin-changelog.007670","pos":804,"row":0,"thread":null,"query":null},"op":"c","ts_ms":1678634463898,"transaction":null}
     val mySqlSource = createCDCSource(params)
-    val source:DataStreamSource[String] = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysql cdc source")
+    val source:DataStreamSource[String] = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mongo cdc source")
 
-    val mapSource = source.rebalance.map(line=>{
+
+    val mapSource = source.rebalance.map(line => {
       val jsonElement = JsonParser.parseString(line)
-      val jsonElementSource = JsonParser.parseString(line).getAsJsonObject.get("source")
-      val db =  jsonElementSource.getAsJsonObject.get("db").getAsString
-      val table =  jsonElementSource.getAsJsonObject.get("table").getAsString
-      val op = jsonElement.getAsJsonObject.get("op").getAsString
+      val jsonElementNS = JsonParser.parseString(line).getAsJsonObject.get("ns")
+      val db = jsonElementNS.getAsJsonObject.get("db").getAsString
+      val table = jsonElementNS.getAsJsonObject.get("coll").getAsString
+      val op = jsonElement.getAsJsonObject.get("operationType").getAsString
       // get primary key columns from config
-      var pk = ""
-      breakable{ for (k <- tablePKMapKeyList) {
-        val reg = k.r
-        val p = reg.findFirstIn(db + "=" + table)
-        if (p.nonEmpty) {
-          pk = tablePKMap.getOrElse(k, "")
-          break
-        }
-      }}
-      if (pk !=""){
-        val pkValue = ArrayBuffer[String]()
-        for (i <-pk.split("\\.")){
-          if (op=="d"){
-            pkValue.append(jsonElement.getAsJsonObject.get("before").getAsJsonObject.get(i).getAsString)
-          }else{
-            pkValue.append(jsonElement.getAsJsonObject.get("after").getAsJsonObject.get(i).getAsString)
-          }
-        }
-        val partitionKey = db+"."+table+"."+pkValue.mkString(".")
-        CDCModel.CDCKafkaModel(db,table,partitionKey,gson.toJson(jsonElement))
+      val documentKey = jsonElement.getAsJsonObject.get("documentKey").getAsString
+      val pattern = """\"_id\":\s*([\d.]+|\{[^}]+\})""".r
+      var pkValue = ""
+      pattern.findFirstMatchIn(documentKey) match {
+        case Some(m) => pkValue = m.group(1).replaceAll(" ","")
+        case None => pkValue = ""
+      }
+      if (pkValue!=""){
+        val partitionKey = db + "." + table + "." + pkValue
+        // CDCKafkaModel(test_db,product,test_db.product.1.0,{"_id":"{\"_id\": 1.0}","operationType":"insert","fullDocument":"{\"_id\": 1.0, \"price\": 2.243, \"name\": \"p2\", \"desc\": {\"dname\": \"desc\"}}","source":{"ts_ms":0,"snapshot":"true"},"ts_ms":1684928179757,"ns":{"db":"test_db","coll":"product"},"to":null,"documentKey":"{\"_id\": 1.0}","updateDescription":null,"clusterTime":null,"txnNumber":null,"lsid":null})
+        // CDCKafkaModel(test_db,product,test_db.product.{"user":"u1","id":1.0},{"_id":"{\"_id\": {\"user\": \"u1\", \"id\": 1.0}}","operationType":"insert","fullDocument":"{\"_id\": {\"user\": \"u1\", \"id\": 1.0}, \"price\": 3.243, \"name\": \"p1\", \"desc\": {\"dname\": \"desc\"}}","source":{"ts_ms":0,"snapshot":"true"},"ts_ms":1684928179765,"ns":{"db":"test_db","coll":"product"},"to":null,"documentKey":"{\"_id\": {\"user\": \"u1\", \"id\": 1.0}}","updateDescription":null,"clusterTime":null,"txnNumber":null,"lsid":null})
+        CDCModel.CDCKafkaModel(db, table, partitionKey, line)
       }else{
         val partitionKey = db+"."+table+".no_pk"
-        CDCModel.CDCKafkaModel(db,table,partitionKey,gson.toJson(jsonElement))
+        CDCModel.CDCKafkaModel(db, table, partitionKey, line)
       }
     })
-//   mapSource.print().setParallelism(1)
-
     mapSource.sinkTo(createKafkaSink(params))
-    env.execute("MySQL Snapshot + Binlog + MSK")
+
+    // mapSource.print().setParallelism(1)
+    env.execute("Mongo Snapshot + ChangeStreams + MSK")
   }
 
-  def createKafkaSink(params:ParamsModel.CDC2MSKParams): KafkaSink[CDCModel.CDCKafkaModel]={
+  def createKafkaSink(params:ParamsModel.MongoCDC2MSKParams): KafkaSink[CDCModel.CDCKafkaModel]={
     val properties = new Properties()
     properties.setProperty("acks", "-1")
     properties.setProperty("transaction.timeout.ms","900000")
@@ -159,35 +142,24 @@ object CDC2AWSMSK {
             .setValueSerializationSchema(new CDCKafkaValueSerializationSchema())
             .build())
         .build()
-
        kafakSink
     }
 
   }
 
-  def createCDCSource(params:ParamsModel.CDC2MSKParams): MySqlSource[String]={
-    var startPos=StartupOptions.initial()
-    if (params.position == "latest"){
-      startPos= StartupOptions.latest()
+  def createCDCSource(params:ParamsModel.MongoCDC2MSKParams): MongoDBSource[String]= {
+    var copyExisting = false
+    if (params.copyExisting=="true"){
+      copyExisting = true
     }
-
-    val prop = new Properties()
-    prop.setProperty("decimal.handling.mode","string")
-    MySqlSource.builder[String]
-      .hostname(params.host.split(":")(0))
-      .port(params.host.split(":")(1).toInt)
+    MongoDBSource.builder[String]
+      .hosts(params.host)
       .username(params.username)
       .password(params.password)
       .databaseList(params.dbList)
-      .tableList(params.tbList)
-      .startupOptions(startPos)
-      .serverId(params.serverId)
-      .serverTimeZone(params.serverTimeZone)
-      .debeziumProperties(prop)
-      .includeSchemaChanges(false)
+      .collectionList(params.collectionList)
+      .copyExisting(copyExisting)
       .deserializer(new JsonDebeziumDeserializationSchema(false)).build
   }
-
-
 
 }

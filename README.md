@@ -5,12 +5,12 @@
 * Flink CDC DataStream API解析MySQL Binlog发送到Kafka，支持按库发送到不同Topic, 也可以发送到同一个Topic
 * 自定义FlinkKafkaPartitioner, 数据库名，表名，主键值三个拼接作为partition key, 保证相同主键的记录发送到Kafka的同一个分区，保证消息顺序。
 * Flink CDC支持增量快照算法，全局无锁，Batch阶段的checkpoint, 但需要表有主键，如果没有主键列增量快照算法就不可用，无法同步数据，需要设置scan.incremental.snapshot.enabled=false禁用增量快照
-* 当前只加入了MySQL
+* 当前加入了MySQL,Mongo
 ```
 
 #### 使用方式
 ```shell
-# Main Class : CDC2AWSMSK
+# Main Class : MySQLCDC2AWSMSK
 # 本地调试参数
 -project_env local or prod # local表示本地运行，prod表示KDA运行
 -disable_chaining false or true # 是否禁用flink operator chaining 
@@ -32,11 +32,35 @@
 # KDA种的参数组ID为: FlinkAppProperties
 ```
 
+```shell
+# Main Class : MongoCDC2AWSMSK
+# 本地调试参数
+-project_env local or prod # local表示本地运行，prod表示KDA运行
+-disable_chaining false or true # 是否禁用flink operator chaining 
+-delivery_guarantee at_least_once # kafka的投递语义at_least_once or exactly_once,建议at_least_once
+-host localhost:27017 # mongo 地址
+-username xxx # mongo 用户名
+-password xxx # mongo 密码
+-db_list test_db # 需要同步的数据库，支持正则，多个可以逗号分隔
+-collection_list test_db.product.*,test_db.product  # 需要同步的表 支持正则，多个可以逗号分隔
+-copy_existing true or flase # true表示先同步已有数据再change streams cdc
+-kafka_broker localhost:9092 # kafka 地址
+-topic test-cdc-1 # topic 名称, 如果所有的数据都发送到同一个topic,设定要发送的topic名称
+-topic_prefix flink_cdc_ # 如果按照数据库划分topic,不同的数据库中表发送到不同topic,可以设定topic前缀，topic名称会被设定为 前缀+数据库名。 设定了-topic_prefix参数后，-topic参数不再生效
+
+# KDA Console参数与之相同，去掉参数前的-即可 
+# KDA种的参数组ID为: FlinkAppProperties
+```
+
 #### build
 ```sh
 mvn clean package -Dscope.type=provided
 
-# 编译好的JAR
-https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202304101313.jar
+# 编译好的JAR mysql cdc
+https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
+# 编译好的JAR mongo cdc
+https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
+
+
 ```
    

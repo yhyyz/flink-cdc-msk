@@ -23,6 +23,7 @@
         <kda.runtime.version>1.2.0</kda.runtime.version>
         <scope.type>compile</scope.type>
         <mysql.cdc.version>2.3.0</mysql.cdc.version>
+        <mongo.cdc.version>2.3.0</mongo.cdc.version>
     </properties>
 
     <repositories>
@@ -165,6 +166,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.ververica</groupId>
+            <artifactId>flink-connector-mongodb-cdc</artifactId>
+            <version>${mongo.cdc.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
@@ -268,7 +275,7 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.aws.analytics.CDC2AWSMSK</mainClass>
+                                    <mainClass>com.aws.analytics.MySQLCDC2AWSMSK</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
