@@ -101,8 +101,6 @@ object MongoCDC2AWSMSK {
       }
     })
     mapSource.sinkTo(createKafkaSink(params))
-
-    // mapSource.print().setParallelism(1)
     env.execute("Mongo Snapshot + ChangeStreams + MSK")
   }
 
