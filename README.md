@@ -109,7 +109,7 @@ sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd8
 # eg: flink savepoint bfee56b39a69f654b4b444510581327b  s3://${s3_bucket_name}/flink/savepoint/ -yid application_1672837624250_0011
 ```
 
-#### 如果使用EMR上的Flink版本低于1.15，可以使用如下方式，使用flink 1.15.4
+#### 如果使用EMR上的Flink版本低于1.15,比如EMR 6.7.0，可以使用如下方式，使用flink 1.15.4
 ```sh
 # login emr master node  and download flink1.15.4
 wget -P /home/hadoop/ https://dlcdn.apache.org/flink/flink-1.15.4/flink-1.15.4-bin-scala_2.12.tgz
