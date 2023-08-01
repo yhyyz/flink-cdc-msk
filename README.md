@@ -22,7 +22,7 @@
 -tb_list test_db.product.*,test_db.product  # 需要同步的表 支持正则，多个可以逗号分隔
 -server_id 10000-10010 # 在快照读取之前，Source 不需要数据库锁权限。如果希望 Source 并行运行，则每个并行 Readers 都应该具有唯一的 Server id，所以 Server id 必须是类似 `5400-6400` 的范围，并且该范围必须大于并行度。
 -server_time_zone Etc/GMT # mysql 时区
--position latest or initial # latest从当前CDC开始同步，initial先快照再CDC
+-position latest or initial or mysql-bin.000003 or mysql-bin.000003:123 or gtid:24DA167-0C0C-11E8-8442-00059A3C7B00:1-19 or timestamp:1667232000000 # latest从当前CDC开始同步，initial先快照再CDC, binlog_file_name 指定binlog文件, binlog_file_name:position 指定binlog文件和位置,gtid:xxx 指定gtid, timestamp:13位时间戳 指定时间戳
 -kafka_broker localhost:9092 # kafka 地址
 -topic test-cdc-1 # topic 名称, 如果所有的数据都发送到同一个topic,设定要发送的topic名称
 -topic_prefix flink_cdc_ # 如果按照数据库划分topic,不同的数据库中表发送到不同topic,可以设定topic前缀，topic名称会被设定为 前缀+数据库名。 设定了-topic_prefix参数后，-topic参数不再生效

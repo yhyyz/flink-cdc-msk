@@ -167,12 +167,31 @@ object MySQLCDC2AWSMSK {
 
   def createCDCSource(params:ParamsModel.MySQLCDC2MSKParams): MySqlSource[String]={
     var startPos=StartupOptions.initial()
-    if (params.position == "latest"){
-      startPos= StartupOptions.latest()
+    if (params.position!=null && ""!=params.position){
+      if (params.position == "latest") {
+        startPos = StartupOptions.latest()
+      } else if (params.position.contains("mysql")) {
+        val tmp = params.position.split(":")
+        if (tmp.length > 1) {
+          val file = tmp(0)
+          val pos = tmp(1)
+          startPos = StartupOptions.specificOffset(file, pos.toLong)
+        } else {
+          val file = tmp(0)
+          startPos = StartupOptions.specificOffset(file, 4L)
+        }
+      } else if (params.position.contains("gtid:")) {
+        startPos = StartupOptions.specificOffset(params.position.split("gtid:")(1))
+      } else if (params.position.contains("timestamp:")){
+        startPos = StartupOptions.timestamp(params.position.split("timestamp:")(1).toLong)
+      }
     }
+
 
     val prop = new Properties()
     prop.setProperty("decimal.handling.mode","string")
+    prop.setProperty("bigint.unsigned.handling.mode", "long")
+
     MySqlSource.builder[String]
       .hostname(params.host.split(":")(0))
       .port(params.host.split(":")(1).toInt)
