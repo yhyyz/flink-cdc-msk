@@ -6,6 +6,8 @@
 * 自定义FlinkKafkaPartitioner, 数据库名，表名，主键值三个拼接作为partition key, 保证相同主键的记录发送到Kafka的同一个分区，保证消息顺序。
 * Flink CDC支持增量快照算法，全局无锁，Batch阶段的checkpoint, 但需要表有主键，如果没有主键列增量快照算法就不可用，无法同步数据，需要设置scan.incremental.snapshot.enabled=false禁用增量快照
 * 当前加入了MySQL,Mongo
+* 支持MySQL指定从binlog位置或者binlog时间点解析数据
+* 加入EMR on EC2支持(flink 1.15.x version)
 ```
 
 #### 使用方式
@@ -58,12 +60,101 @@ mvn clean package -Dscope.type=provided
 
 # 编译好的JAR mysql cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
-# mysql cdc 支持配置指定binlog位置或者指定时间戳
-https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011524.jar
-
+# mysql cdc 支持配置指定binlog位置或者指定时间戳,支持EMR on EC2. class:  com.aws.analytics.emr.MySQLCDC2AWSMSK 
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar
 # 编译好的JAR mongo cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
-
 ```
    
+#### EMR on EC2
+##### EMR 6.8.0+的flink 1.15版本
+```sh
+# s3 plugin
+sudo mkdir -p /usr/lib/flink/plugins/s3/
+sudo mv  /usr/lib/flink/opt/flink-s3-fs-hadoop-1.15.1.jar /usr/lib/flink/plugins/s3/
+# disable check-leaked-classloader
+sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/flink-conf.yaml
+```
+##### run job
+```sh
+s3_bucket_name="panchao-data"
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar
+
+sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/  -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
+-c  com.aws.analytics.emr.MySQLCDC2AWSMSK \
+/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar \
+-project_env prod \
+-disable_chaining true \
+-delivery_guarantee at_least_once \
+-host ssa-panchao-db.cojrbrhcpw9s.us-east-1.rds.amazonaws.com:3306 \
+-username ssa \
+-password Ssa123456 \
+-db_list test_db \
+-tb_list test_db.product.* \
+-server_id 200200-200300 \
+-server_time_zone Etc/GMT \
+-position timestamp:1688204585 \
+-kafka_broker b-1.commonmskpanchao.wp46nn.c9.kafka.us-east-1.amazonaws.com:9092 \
+-topic test-cdc-1 \
+-table_pk '[{"db":"cdc_db_02","table":"sbtest2","primary_key":"id"},{"db":"test_db","table":"product","primary_key":"id"}]' \
+-checkpoint_interval 30 \
+-checkpoint_dir s3://${s3_bucket_name}/flink/checkpoint/test/ \
+-parallel 4
+
+
+# 如果从savepoint或者checkpoint恢复作业，flink run -s 参数指定savepoint或者最后一次checkpoint目录
+# eg: s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/
+# 手动触发savepoint
+# eg: flink savepoint bfee56b39a69f654b4b444510581327b  s3://${s3_bucket_name}/flink/savepoint/ -yid application_1672837624250_0011
+```
+
+#### 如果使用EMR上的Flink版本低于1.15，可以使用如下方式，使用flink 1.15.4
+```sh
+# login emr master node  and download flink1.15.4
+wget -P /home/hadoop/ https://dlcdn.apache.org/flink/flink-1.15.4/flink-1.15.4-bin-scala_2.12.tgz
+
+# set table planner
+cd /home/hadoop/ && tar -xvzf flink-1.15.4-bin-scala_2.12.tgz
+mv /home/hadoop/flink-1.15.4/lib/flink-table-planner-loader-1.15.4.jar /home/hadoop/flink-1.15.4/opt/
+cp /home/hadoop/flink-1.15.4/opt/flink-table-planner_2.12-1.15.4.jar /home/hadoop/flink-1.15.4/lib/
+cp /home/hadoop/flink-1.15.4/opt/flink-s3-fs-hadoop-1.15.4.jar /home/hadoop/flink-1.15.4/lib/
+
+# disable check-leaked-classloader
+sed -i -e '$a\classloader.check-leaked-classloader: false' /home/hadoop/flink-1.15.4/conf/flink-conf.yaml
+
+# download job jar
+wget -P /home/hadoop/ https://dxs9dnjebzm6y.cloudfront.net/tmp/emr-flink15-opensearch-write.jar
+```
+##### run job
+```sh
+export HADOOP_CLASSPATH=`hadoop classpath`
+s3_bucket_name="panchao-data"
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar
+
+/home/hadoop/flink-1.15.4/bin/flink run -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
+-c  com.aws.analytics.emr.MySQLCDC2AWSMSK \
+/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar \
+-project_env prod \
+-disable_chaining true \
+-delivery_guarantee at_least_once \
+-host ssa-panchao-db.cojrbrhcpw9s.us-east-1.rds.amazonaws.com:3306 \
+-username ssa \
+-password Ssa123456 \
+-db_list test_db \
+-tb_list test_db.product.* \
+-server_id 200200-200300 \
+-server_time_zone Etc/GMT \
+-position timestamp:1688204585 \
+-kafka_broker b-1.commonmskpanchao.wp46nn.c9.kafka.us-east-1.amazonaws.com:9092 \
+-topic test-cdc-1 \
+-table_pk '[{"db":"cdc_db_02","table":"sbtest2","primary_key":"id"},{"db":"test_db","table":"product","primary_key":"id"}]' \
+-checkpoint_interval 30 \
+-checkpoint_dir s3://${s3_bucket_name}/flink/checkpoint/test/ \
+-parallel 4
+
+# 如果从savepoint或者checkpoint恢复作业，/home/hadoop/flink-1.15.4/bin/flink  run -s 参数指定savepoint或者最后一次checkpoint目录
+# eg: s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/
+# 手动触发savepoint
+# eg: /home/hadoop/flink-1.15.4/bin/flink  savepoint bfee56b39a69f654b4b444510581327b  s3://${s3_bucket_name}/flink/savepoint/ -yid application_1672837624250_0011
+```
