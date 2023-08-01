@@ -58,6 +58,9 @@ mvn clean package -Dscope.type=provided
 
 # 编译好的JAR mysql cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
+# mysql cdc 支持配置指定binlog位置或者指定时间戳
+https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011524.jar
+
 # 编译好的JAR mongo cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
