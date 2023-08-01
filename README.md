@@ -113,6 +113,8 @@ sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd8
 ```sh
 # login emr master node  and download flink1.15.4
 wget -P /home/hadoop/ https://dlcdn.apache.org/flink/flink-1.15.4/flink-1.15.4-bin-scala_2.12.tgz
+# 备用链接 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-1.15.4-bin-scala_2.12.tgz
+
 
 # set table planner
 cd /home/hadoop/ && tar -xvzf flink-1.15.4-bin-scala_2.12.tgz
