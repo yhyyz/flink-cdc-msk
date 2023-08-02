@@ -117,7 +117,17 @@ object MySQLCDC2AWSMSK {
   def createKafkaSink(params:ParamsModel.MySQLCDC2MSKParamsForEMR): KafkaSink[CDCModel.CDCKafkaModel]={
     val properties = new Properties()
     properties.setProperty("acks", "-1")
-    properties.setProperty("transaction.timeout.ms","900000")
+    properties.setProperty("transaction.timeout.ms", "900000")
+//    properties.setProperty("max.request.size", "4788524")
+
+    if ( params.kafkaProperties=="" ||  params.kafkaProperties==null){
+      val proList = params.kafkaProperties.split(",")
+      for(kv <- proList){
+        val key = kv.split("=")(0)
+        val value = kv.split("=")(1)
+        properties.setProperty(key, value)
+      }
+    }
 
     var dg = DeliveryGuarantee.EXACTLY_ONCE
     if (params.deliveryGuarantee=="at_least_once"){

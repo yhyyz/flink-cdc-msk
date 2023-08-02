@@ -34,8 +34,9 @@ object ParameterToolUtils {
     val checkpointInterval = parameter.get("checkpoint_interval")
     val checkpointDir = parameter.get("checkpoint_dir")
     val parallel = parameter.get("parallel")
+    val kafkaProperties = parameter.get("kafka_properties")
 
-    val params = ParamsModel.MySQLCDC2MSKParamsForEMR.apply(projectEnv, disableChaining, deliveryGuarantee, host, username, password, position, dbList, tbList, serverId, serverTimeZone, kafkaBroker, topic, topicPrefix, tablePK,checkpointInterval,checkpointDir,parallel)
+    val params = ParamsModel.MySQLCDC2MSKParamsForEMR.apply(projectEnv, disableChaining, deliveryGuarantee, host, username, password, position, dbList, tbList, serverId, serverTimeZone, kafkaBroker, topic, topicPrefix, tablePK,checkpointInterval,checkpointDir,parallel,kafkaProperties)
     params
   }
   def getMySQLCDC2MSKParams(parameter: ParameterTool): ParamsModel.MySQLCDC2MSKParams = {
@@ -54,7 +55,8 @@ object ParameterToolUtils {
     val topic = parameter.get("topic")
     val topicPrefix = parameter.get("topic_prefix")
     val tablePK = parameter.get("table_pk")
-    val params = ParamsModel.MySQLCDC2MSKParams.apply(projectEnv,disableChaining,deliveryGuarantee,host,username,password,position,dbList,tbList,serverId,serverTimeZone,kafkaBroker,topic,topicPrefix,tablePK)
+    val kafkaProperties = parameter.get("kafka_properties")
+    val params = ParamsModel.MySQLCDC2MSKParams.apply(projectEnv,disableChaining,deliveryGuarantee,host,username,password,position,dbList,tbList,serverId,serverTimeZone,kafkaBroker,topic,topicPrefix,tablePK,kafkaProperties)
     params
   }
 
@@ -71,7 +73,8 @@ object ParameterToolUtils {
     val kafkaBroker = parameter.get("kafka_broker")
     val topic = parameter.get("topic")
     val topicPrefix = parameter.get("topic_prefix")
-    val params = ParamsModel.MongoCDC2MSKParams.apply(projectEnv, disableChaining, deliveryGuarantee, host, username, password, copyExisting, dbList, collectionList, kafkaBroker, topic, topicPrefix)
+    val kafkaProperties = parameter.get("kafka_properties")
+    val params = ParamsModel.MongoCDC2MSKParams.apply(projectEnv, disableChaining, deliveryGuarantee, host, username, password, copyExisting, dbList, collectionList, kafkaBroker, topic, topicPrefix,kafkaProperties)
     params
   }
 }

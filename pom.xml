@@ -22,7 +22,8 @@
         <log4j.version>2.17.1</log4j.version>
         <kda.runtime.version>1.2.0</kda.runtime.version>
         <scope.type>compile</scope.type>
-        <mysql.cdc.version>2.3.0</mysql.cdc.version>
+        <mysql.cdc.version>2.4.1</mysql.cdc.version>
+<!--        <mysql.cdc.version>2.3.0</mysql.cdc.version>-->
         <mongo.cdc.version>2.3.0</mongo.cdc.version>
     </properties>
 

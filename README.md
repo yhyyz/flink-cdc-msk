@@ -29,6 +29,8 @@
 -topic test-cdc-1 # topic 名称, 如果所有的数据都发送到同一个topic,设定要发送的topic名称
 -topic_prefix flink_cdc_ # 如果按照数据库划分topic,不同的数据库中表发送到不同topic,可以设定topic前缀，topic名称会被设定为 前缀+数据库名。 设定了-topic_prefix参数后，-topic参数不再生效
 -table_pk [{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid"}] # 需要同步的表的主键
+# max.request.size 默认1MB,这里设置的10MB
+-kafka_properties 'max.request.size=1073741824,xxxx=xxxx' # kafka生产者参数,多个以逗号分隔
 
 # KDA Console参数与之相同，去掉参数前的-即可 
 # KDA种的参数组ID为: FlinkAppProperties
@@ -49,6 +51,7 @@
 -kafka_broker localhost:9092 # kafka 地址
 -topic test-cdc-1 # topic 名称, 如果所有的数据都发送到同一个topic,设定要发送的topic名称
 -topic_prefix flink_cdc_ # 如果按照数据库划分topic,不同的数据库中表发送到不同topic,可以设定topic前缀，topic名称会被设定为 前缀+数据库名。 设定了-topic_prefix参数后，-topic参数不再生效
+-kafka_properties 'max.request.size=1073741824,xxxx=xxxx' # kafka生产者参数,多个以逗号分隔
 
 # KDA Console参数与之相同，去掉参数前的-即可 
 # KDA种的参数组ID为: FlinkAppProperties
@@ -61,7 +64,7 @@ mvn clean package -Dscope.type=provided
 # 编译好的JAR mysql cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
 # mysql cdc 支持配置指定binlog位置或者指定时间戳,支持EMR on EC2. class:  com.aws.analytics.emr.MySQLCDC2AWSMSK 
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar
 # 编译好的JAR mongo cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
@@ -78,12 +81,12 @@ sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/
 ```
 ##### run job
 ```sh
-s3_bucket_name="panchao-data"
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar
 
+s3_bucket_name="panchao-data"
 sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/  -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
 -c  com.aws.analytics.emr.MySQLCDC2AWSMSK \
-/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar \
+/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar \
 -project_env prod \
 -disable_chaining true \
 -delivery_guarantee at_least_once \
@@ -94,14 +97,15 @@ sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd8
 -tb_list test_db.product.* \
 -server_id 200200-200300 \
 -server_time_zone Etc/GMT \
--position timestamp:1688204585 \
+-position timestamp:1688204585000 \
 -kafka_broker b-1.commonmskpanchao.wp46nn.c9.kafka.us-east-1.amazonaws.com:9092 \
 -topic test-cdc-1 \
 -table_pk '[{"db":"cdc_db_02","table":"sbtest2","primary_key":"id"},{"db":"test_db","table":"product","primary_key":"id"}]' \
 -checkpoint_interval 30 \
 -checkpoint_dir s3://${s3_bucket_name}/flink/checkpoint/test/ \
--parallel 4
-
+-parallel 4 \
+-kafka_properties 'max.request.size=1073741824' 
+# max.request.size 默认1MB,这里设置的10MB
 
 # 如果从savepoint或者checkpoint恢复作业，flink run -s 参数指定savepoint或者最后一次checkpoint目录
 # eg: s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/
@@ -124,19 +128,20 @@ cp /home/hadoop/flink-1.15.4/opt/flink-s3-fs-hadoop-1.15.4.jar /home/hadoop/flin
 
 # disable check-leaked-classloader
 sed -i -e '$a\classloader.check-leaked-classloader: false' /home/hadoop/flink-1.15.4/conf/flink-conf.yaml
+# 修改restart 策略，如果失败立即退出
+sed -i -e '$a\restart-strategy: fixed-delay ' /home/hadoop/flink-1.15.4/conf/flink-conf.yaml
 
-# download job jar
-wget -P /home/hadoop/ https://dxs9dnjebzm6y.cloudfront.net/tmp/emr-flink15-opensearch-write.jar
 ```
 ##### run job
 ```sh
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar
+
 export HADOOP_CLASSPATH=`hadoop classpath`
 s3_bucket_name="panchao-data"
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar
-
 /home/hadoop/flink-1.15.4/bin/flink run -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
+-D restart-strategy.type=fixed-delay -D restart-strategy.fixed-delay.attempts=1 -D restart-strategy.fixed-delay.delay=3 \
 -c  com.aws.analytics.emr.MySQLCDC2AWSMSK \
-/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308011631.jar \
+/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar \
 -project_env prod \
 -disable_chaining true \
 -delivery_guarantee at_least_once \
@@ -147,13 +152,15 @@ wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-2023080
 -tb_list test_db.product.* \
 -server_id 200200-200300 \
 -server_time_zone Etc/GMT \
--position timestamp:1688204585 \
+-position timestamp:1690900632000 \
 -kafka_broker b-1.commonmskpanchao.wp46nn.c9.kafka.us-east-1.amazonaws.com:9092 \
 -topic test-cdc-1 \
 -table_pk '[{"db":"cdc_db_02","table":"sbtest2","primary_key":"id"},{"db":"test_db","table":"product","primary_key":"id"}]' \
 -checkpoint_interval 30 \
 -checkpoint_dir s3://${s3_bucket_name}/flink/checkpoint/test/ \
--parallel 4
+-parallel 4 \
+-kafka_properties 'max.request.size=1073741824' \
+# max.request.size 默认1MB,这里设置的10MB,多个参数逗号分隔
 
 # 如果从savepoint或者checkpoint恢复作业，/home/hadoop/flink-1.15.4/bin/flink  run -s 参数指定savepoint或者最后一次checkpoint目录
 # eg: s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/

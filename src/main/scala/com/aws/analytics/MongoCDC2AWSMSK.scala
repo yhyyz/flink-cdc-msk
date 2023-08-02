@@ -109,6 +109,14 @@ object MongoCDC2AWSMSK {
     properties.setProperty("acks", "-1")
     properties.setProperty("transaction.timeout.ms","900000")
 
+    if (params.kafkaProperties == "" || params.kafkaProperties == null) {
+      val proList = params.kafkaProperties.split(",")
+      for (kv <- proList) {
+        val key = kv.split("=")(0)
+        val value = kv.split("=")(1)
+        properties.setProperty(key, value)
+      }
+    }
     var dg = DeliveryGuarantee.EXACTLY_ONCE
     if (params.deliveryGuarantee=="at_least_once"){
       dg = DeliveryGuarantee.AT_LEAST_ONCE
