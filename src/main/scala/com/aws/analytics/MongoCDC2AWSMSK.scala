@@ -109,7 +109,7 @@ object MongoCDC2AWSMSK {
     properties.setProperty("acks", "-1")
     properties.setProperty("transaction.timeout.ms","900000")
 
-    if (params.kafkaProperties == "" || params.kafkaProperties == null) {
+    if (params.kafkaProperties != "" || params.kafkaProperties != null) {
       val proList = params.kafkaProperties.split(",")
       for (kv <- proList) {
         val key = kv.split("=")(0)

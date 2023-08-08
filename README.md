@@ -64,7 +64,7 @@ mvn clean package -Dscope.type=provided
 # 编译好的JAR mysql cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
 # mysql cdc 支持配置指定binlog位置或者指定时间戳,支持EMR on EC2. class:  com.aws.analytics.emr.MySQLCDC2AWSMSK 
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
 # 编译好的JAR mongo cdc
 https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
@@ -81,7 +81,7 @@ sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/
 ```
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
 
 s3_bucket_name="panchao-data"
 sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/  -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
@@ -134,7 +134,7 @@ sed -i -e '$a\restart-strategy: fixed-delay ' /home/hadoop/flink-1.15.4/conf/fli
 ```
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
 
 export HADOOP_CLASSPATH=`hadoop classpath`
 s3_bucket_name="panchao-data"

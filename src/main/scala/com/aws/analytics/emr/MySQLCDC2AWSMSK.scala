@@ -120,7 +120,7 @@ object MySQLCDC2AWSMSK {
     properties.setProperty("transaction.timeout.ms", "900000")
 //    properties.setProperty("max.request.size", "4788524")
 
-    if ( params.kafkaProperties=="" ||  params.kafkaProperties==null){
+    if ( params.kafkaProperties!="" &&  params.kafkaProperties!=null){
       val proList = params.kafkaProperties.split(",")
       for(kv <- proList){
         val key = kv.split("=")(0)
