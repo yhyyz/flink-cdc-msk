@@ -1,6 +1,7 @@
 package com.aws.analytics.emr
 
 import com.amazonaws.services.kinesisanalytics.runtime.KinesisAnalyticsRuntime
+import com.aws.analytics.MySQLCDC2AWSMSK.gson
 import com.aws.analytics.kafka.{CDCKafkaKeySerializationSchema, CDCKafkaValueSerializationSchema}
 import com.aws.analytics.model.{CDCModel, ParamsModel}
 import com.aws.analytics.partitioner.FlinkCDCSimplePartitioner
@@ -17,7 +18,7 @@ import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.connector.base.DeliveryGuarantee
 import org.apache.flink.connector.kafka.sink.{KafkaRecordSerializationSchema, KafkaSink}
-import org.apache.flink.contrib.streaming.state.{EmbeddedRocksDBStateBackend}
+import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend
 import org.apache.flink.runtime.state.StateBackend
 import org.apache.flink.streaming.api.CheckpointingMode
 import org.apache.flink.streaming.api.datastream.DataStreamSource
@@ -60,13 +61,19 @@ object MySQLCDC2AWSMSK {
     env.setParallelism(params.parallel.toInt)
     //[{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid"}]
     val tablePKList = JsonParser.parseString(params.tablePK).getAsJsonArray.asList().toArray()
-    val tablePKMap =mutable.Map[String,String]()
+    val tablePKMap =mutable.Map[String,mutable.Map[String,String]]()
     for (item <- tablePKList){
       val jsonEle =item.asInstanceOf[JsonElement]
       val db = jsonEle.getAsJsonObject.get("db").getAsString
       val table = jsonEle.getAsJsonObject.get("table").getAsString
       val primary_key = jsonEle.getAsJsonObject.get("primary_key").getAsString
-      tablePKMap.put(db+"="+table,primary_key)
+      val paramsMap = mutable.Map[String, String]()
+      paramsMap.put("primary_key", primary_key)
+      if (jsonEle.getAsJsonObject.has("column_max_length")) {
+        val column_max_length = jsonEle.getAsJsonObject.get("column_max_length").getAsString
+        paramsMap.put("column_max_length", column_max_length)
+      }
+      tablePKMap.put(db + "=" + table, paramsMap)
     }
     val tablePKMapKeyList = tablePKMap.keys.seq.toList.sortBy(- _.length)
 //    val chkConfig = env.getCheckpointConfig
@@ -77,36 +84,76 @@ object MySQLCDC2AWSMSK {
     val mySqlSource = createCDCSource(params)
     val source:DataStreamSource[String] = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysql cdc source")
 
-    val mapSource = source.rebalance.map(line=>{
+    val mapSource = source.rebalance.map(line => {
       val jsonElement = JsonParser.parseString(line)
       val jsonElementSource = JsonParser.parseString(line).getAsJsonObject.get("source")
-      val db =  jsonElementSource.getAsJsonObject.get("db").getAsString
-      val table =  jsonElementSource.getAsJsonObject.get("table").getAsString
+      val db = jsonElementSource.getAsJsonObject.get("db").getAsString
+      val table = jsonElementSource.getAsJsonObject.get("table").getAsString
       val op = jsonElement.getAsJsonObject.get("op").getAsString
       // get primary key columns from config
       var pk = ""
-      breakable{ for (k <- tablePKMapKeyList) {
-        val reg = k.r
-        val p = reg.findFirstIn(db + "=" + table)
-        if (p.nonEmpty) {
-          pk = tablePKMap.getOrElse(k, "")
-          break
+      var columnMaxLength = ""
+      breakable {
+        for (k <- tablePKMapKeyList) {
+          val reg = k.r
+          val p = reg.findFirstIn(db + "=" + table)
+          if (p.nonEmpty) {
+            pk = tablePKMap.getOrElse(k, mutable.Map[String, String]()).getOrElse("primary_key", "")
+            columnMaxLength = tablePKMap.getOrElse(k, mutable.Map[String, String]()).getOrElse("column_max_length", "")
+            break
+          }
         }
-      }}
-      if (pk !=""){
+      }
+      if (pk != "") {
         val pkValue = ArrayBuffer[String]()
-        for (i <-pk.split("\\.")){
-          if (op=="d"){
+        for (i <- pk.split("\\.")) {
+          if (op == "d") {
             pkValue.append(jsonElement.getAsJsonObject.get("before").getAsJsonObject.get(i).getAsString)
-          }else{
+          } else {
             pkValue.append(jsonElement.getAsJsonObject.get("after").getAsJsonObject.get(i).getAsString)
           }
         }
-        val partitionKey = db+"."+table+"."+pkValue.mkString(".")
-        CDCModel.CDCKafkaModel(db,table,partitionKey,gson.toJson(jsonElement))
-      }else{
-        val partitionKey = db+"."+table+".no_pk"
-        CDCModel.CDCKafkaModel(db,table,partitionKey,gson.toJson(jsonElement))
+        val partitionKey = db + "." + table + "." + pkValue.mkString(".")
+        var jsonStr = gson.toJson(jsonElement)
+        if (columnMaxLength != "") {
+          for (item <- columnMaxLength.split("\\|")) {
+            val col = item.split("=")(0)
+            val maxLength = item.split("=")(1).toInt
+            val pattern = s""""${col}":"(.*?)"""".r
+            val replacedStr = pattern.replaceAllIn(jsonStr, m => {
+              val tmp = m.group(1)
+              if (tmp != "" && tmp != null && tmp.length >= maxLength) {
+                val res = tmp.substring(0, maxLength)
+                s""""${col}":"""" + res + "\""
+              } else {
+                s""""${col}":"""" + tmp + "\""
+              }
+            })
+            jsonStr = replacedStr
+          }
+        }
+        CDCModel.CDCKafkaModel(db, table, partitionKey, jsonStr)
+      } else {
+        val partitionKey = db + "." + table + ".no_pk"
+        var jsonStr = gson.toJson(jsonElement)
+        if (columnMaxLength != "") {
+          for (item <- columnMaxLength.split("\\|")) {
+            val col = item.split("=")(0)
+            val maxLength = item.split("=")(1).toInt
+            val pattern = s""""${col}":"(.*?)"""".r
+            val replacedStr = pattern.replaceAllIn(jsonStr, m => {
+              val tmp = m.group(1)
+              if (tmp != "" && tmp != null && tmp.length >= maxLength) {
+                val res = tmp.substring(0, maxLength)
+                s""""${col}":"""" + res + "\""
+              } else {
+                s""""${col}":"""" + tmp + "\""
+              }
+            })
+            jsonStr = replacedStr
+          }
+        }
+        CDCModel.CDCKafkaModel(db, table, partitionKey, jsonStr)
       }
     })
 //   mapSource.print().setParallelism(1)

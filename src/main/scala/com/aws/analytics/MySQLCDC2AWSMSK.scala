@@ -66,15 +66,21 @@ object MySQLCDC2AWSMSK {
       Time.seconds(10)
     ))
 
-    //[{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid"}]
+    //[{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid","column_max_length":"col1=100|col2=200"}]
     val tablePKList = JsonParser.parseString(params.tablePK).getAsJsonArray.asList().toArray()
-    val tablePKMap =mutable.Map[String,String]()
+    val tablePKMap =mutable.Map[String,mutable.Map[String,String]]()
     for (item <- tablePKList){
       val jsonEle =item.asInstanceOf[JsonElement]
       val db = jsonEle.getAsJsonObject.get("db").getAsString
       val table = jsonEle.getAsJsonObject.get("table").getAsString
       val primary_key = jsonEle.getAsJsonObject.get("primary_key").getAsString
-      tablePKMap.put(db+"="+table,primary_key)
+      val paramsMap = mutable.Map[String,String]()
+      paramsMap.put("primary_key",primary_key)
+      if (jsonEle.getAsJsonObject.has("column_max_length")){
+        val column_max_length =  jsonEle.getAsJsonObject.get("column_max_length").getAsString
+        paramsMap.put("column_max_length",column_max_length)
+      }
+      tablePKMap.put(db+"="+table,paramsMap)
     }
     val tablePKMapKeyList = tablePKMap.keys.seq.toList.sortBy(- _.length)
 //    val chkConfig = env.getCheckpointConfig
@@ -93,11 +99,13 @@ object MySQLCDC2AWSMSK {
       val op = jsonElement.getAsJsonObject.get("op").getAsString
       // get primary key columns from config
       var pk = ""
+      var columnMaxLength = ""
       breakable{ for (k <- tablePKMapKeyList) {
         val reg = k.r
         val p = reg.findFirstIn(db + "=" + table)
         if (p.nonEmpty) {
-          pk = tablePKMap.getOrElse(k, "")
+          pk = tablePKMap.getOrElse(k, mutable.Map[String,String]()).getOrElse("primary_key","")
+          columnMaxLength = tablePKMap.getOrElse(k, mutable.Map[String,String]()).getOrElse("column_max_length","")
           break
         }
       }}
@@ -111,10 +119,46 @@ object MySQLCDC2AWSMSK {
           }
         }
         val partitionKey = db+"."+table+"."+pkValue.mkString(".")
-        CDCModel.CDCKafkaModel(db,table,partitionKey,gson.toJson(jsonElement))
+        var jsonStr = gson.toJson(jsonElement)
+        if (columnMaxLength!=""){
+          for(item <- columnMaxLength.split("\\|")){
+            val col = item.split("=")(0)
+            val maxLength = item.split("=")(1).toInt
+            val pattern = s""""${col}":"(.*?)"""".r
+            val replacedStr = pattern.replaceAllIn(jsonStr, m => {
+              val tmp = m.group(1)
+              if (tmp != "" && tmp != null && tmp.length >= maxLength) {
+                val res = tmp.substring(0, maxLength)
+                s""""${col}":"""" + res + "\""
+              } else {
+                s""""${col}":"""" + tmp + "\""
+              }
+            })
+            jsonStr = replacedStr
+          }
+        }
+        CDCModel.CDCKafkaModel(db,table,partitionKey,jsonStr)
       }else{
         val partitionKey = db+"."+table+".no_pk"
-        CDCModel.CDCKafkaModel(db,table,partitionKey,gson.toJson(jsonElement))
+        var jsonStr = gson.toJson(jsonElement)
+        if (columnMaxLength != "") {
+          for (item <- columnMaxLength.split("\\|")) {
+            val col = item.split("=")(0)
+            val maxLength = item.split("=")(1).toInt
+            val pattern = s""""${col}":"(.*?)"""".r
+            val replacedStr = pattern.replaceAllIn(jsonStr, m => {
+              val tmp = m.group(1)
+              if (tmp != "" && tmp != null && tmp.length >= maxLength) {
+                val res = tmp.substring(0, maxLength)
+                s""""${col}":"""" + res + "\""
+              } else {
+                s""""${col}":"""" + tmp + "\""
+              }
+            })
+            jsonStr = replacedStr
+          }
+        }
+        CDCModel.CDCKafkaModel(db,table,partitionKey,jsonStr)
       }
     })
 //   mapSource.print().setParallelism(1)
@@ -140,7 +184,7 @@ object MySQLCDC2AWSMSK {
       dg = DeliveryGuarantee.AT_LEAST_ONCE
     }
     if (params.topicPrefix=="" || params.topicPrefix==null){
-      lazy val kafakSink = KafkaSink.builder()
+      lazy val kafkaSink = KafkaSink.builder()
         .setDeliverGuarantee(dg)
         .setBootstrapServers(params.kafkaBroker)
         .setKafkaProducerConfig(properties)
@@ -152,9 +196,9 @@ object MySQLCDC2AWSMSK {
             .setTopic(params.topic)
             .build())
         .build()
-       kafakSink
+      kafkaSink
     }else{
-      lazy val kafakSink = KafkaSink.builder()
+      lazy val kafkaSink = KafkaSink.builder()
         .setDeliverGuarantee(dg)
         .setBootstrapServers(params.kafkaBroker)
         .setKafkaProducerConfig(properties)
@@ -167,7 +211,7 @@ object MySQLCDC2AWSMSK {
             .build())
         .build()
 
-       kafakSink
+      kafkaSink
     }
 
   }

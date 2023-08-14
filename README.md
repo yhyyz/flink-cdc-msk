@@ -10,6 +10,15 @@
 * 加入EMR on EC2支持(flink 1.15.x version)
 ```
 
+#### 更新
+1. 2023-08-14 增加对指定字段进行长度截取
+```shell
+-table_pk 参数中指定column_max_length参数,col1=10|col2=10,表示col1列保留10个字符,col2列保留10个字符,多个列以竖线分割,注意-table_pk的json参数需要用反斜杠转义,例子如下
+[{\"db\":\"test_db\",\"table\":\"product\",\"primary_key\":\"id\",\"column_max_length\":\"col1=10|col2=10\"}]
+
+# jar下载： https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308142311.jar
+```
+
 #### 使用方式
 ```shell
 # Main Class : MySQLCDC2AWSMSK
@@ -61,12 +70,15 @@
 ```sh
 mvn clean package -Dscope.type=provided
 
-# 编译好的JAR mysql cdc
-https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
+# MySQL CDC
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
 # mysql cdc 支持配置指定binlog位置或者指定时间戳,支持EMR on EC2. class:  com.aws.analytics.emr.MySQLCDC2AWSMSK 
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
-# 编译好的JAR mongo cdc
-https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
+# mysql cdc 支持设置字段最大长度
+wget  https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308142311.jar
+
+# mongo cdc
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
 ```
    
@@ -79,9 +91,10 @@ sudo mv  /usr/lib/flink/opt/flink-s3-fs-hadoop-1.15.1.jar /usr/lib/flink/plugins
 # disable check-leaked-classloader
 sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/flink-conf.yaml
 ```
+
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308142311.jar
 
 s3_bucket_name="panchao-data"
 sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/  -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
@@ -134,7 +147,7 @@ sed -i -e '$a\restart-strategy: fixed-delay ' /home/hadoop/flink-1.15.4/conf/fli
 ```
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308142311.jar
 
 export HADOOP_CLASSPATH=`hadoop classpath`
 s3_bucket_name="panchao-data"
