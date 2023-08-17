@@ -60,7 +60,7 @@ object MySQLCDC2AWSMSK {
     env.getCheckpointConfig.setCheckpointStorage(params.checkpointDir)
     env.setParallelism(params.parallel.toInt)
     //[{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid"}]
-    val tablePKList = JsonParser.parseString(params.tablePK).getAsJsonArray.asList().toArray()
+    val tablePKList = JsonParser.parseString(params.tablePK.replace("\\","")).getAsJsonArray.asList().toArray()
     val tablePKMap =mutable.Map[String,mutable.Map[String,String]]()
     for (item <- tablePKList){
       val jsonEle =item.asInstanceOf[JsonElement]

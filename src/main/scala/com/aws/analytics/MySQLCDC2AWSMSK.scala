@@ -65,9 +65,8 @@ object MySQLCDC2AWSMSK {
       3,
       Time.seconds(10)
     ))
-
     //[{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid","column_max_length":"col1=100|col2=200"}]
-    val tablePKList = JsonParser.parseString(params.tablePK).getAsJsonArray.asList().toArray()
+    val tablePKList = JsonParser.parseString(params.tablePK.replace("\\","")).getAsJsonArray.asList().toArray()
     val tablePKMap =mutable.Map[String,mutable.Map[String,String]]()
     for (item <- tablePKList){
       val jsonEle =item.asInstanceOf[JsonElement]
