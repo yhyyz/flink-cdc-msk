@@ -15,7 +15,7 @@
 ```shell
 -table_pk 参数中指定column_max_length参数,col1=10|col2=10,表示col1列保留10个字符,col2列保留10个字符,多个列以竖线分割,注意-table_pk的json参数需要用反斜杠转义,例子如下
 '[{\"db\":\"test_db\",\"table\":\"product\",\"primary_key\":\"id\",\"column_max_length\":\"col1=10|col2=10\"}]'
-# jar下载：https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308171040.jar
+# jar下载：https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar
 ```
 
 #### 使用方式
@@ -74,7 +74,7 @@ wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-2
 # mysql cdc 支持配置指定binlog位置或者指定时间戳,支持EMR on EC2. class:  com.aws.analytics.emr.MySQLCDC2AWSMSK 
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
 # mysql cdc 支持设置字段最大长度
-wget  https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308171040.jar
+wget  https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar
 
 # mongo cdc
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
@@ -93,12 +93,12 @@ sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/
 
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308171040.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar
 
 s3_bucket_name="panchao-data"
 sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/  -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
 -c  com.aws.analytics.emr.MySQLCDC2AWSMSK \
-/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar \
+/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar \
 -project_env prod \
 -disable_chaining true \
 -delivery_guarantee at_least_once \
@@ -146,7 +146,7 @@ sed -i -e '$a\restart-strategy: fixed-delay ' /home/hadoop/flink-1.15.4/conf/fli
 ```
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308171040.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar
 
 
 export HADOOP_CLASSPATH=`hadoop classpath`
@@ -154,7 +154,7 @@ s3_bucket_name="panchao-data"
 /home/hadoop/flink-1.15.4/bin/flink run -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
 -D restart-strategy.type=fixed-delay -D restart-strategy.fixed-delay.attempts=1 -D restart-strategy.fixed-delay.delay=3 \
 -c  com.aws.analytics.emr.MySQLCDC2AWSMSK \
-/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308022205.jar \
+/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar \
 -project_env prod \
 -disable_chaining true \
 -delivery_guarantee at_least_once \

@@ -65,6 +65,7 @@ object MySQLCDC2AWSMSK {
       3,
       Time.seconds(10)
     ))
+    println("cdc2kafka: " + params.toString)
     //[{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid","column_max_length":"col1=100|col2=200"}]
     val tablePKList = JsonParser.parseString(params.tablePK.replace("\\","")).getAsJsonArray.asList().toArray()
     val tablePKMap =mutable.Map[String,mutable.Map[String,String]]()
@@ -117,46 +118,50 @@ object MySQLCDC2AWSMSK {
             pkValue.append(jsonElement.getAsJsonObject.get("after").getAsJsonObject.get(i).getAsString)
           }
         }
-        val partitionKey = db+"."+table+"."+pkValue.mkString(".")
-        var jsonStr = gson.toJson(jsonElement)
-        if (columnMaxLength!=""){
-          for(item <- columnMaxLength.split("\\|")){
-            val col = item.split("=")(0)
-            val maxLength = item.split("=")(1).toInt
-            val pattern = s""""${col}":"(.*?)"""".r
-            val replacedStr = pattern.replaceAllIn(jsonStr, m => {
-              val tmp = m.group(1)
-              if (tmp != "" && tmp != null && tmp.length >= maxLength) {
-                val res = tmp.substring(0, maxLength)
-                s""""${col}":"""" + res + "\""
-              } else {
-                s""""${col}":"""" + tmp + "\""
-              }
-            })
-            jsonStr = replacedStr
-          }
-        }
-        CDCModel.CDCKafkaModel(db,table,partitionKey,jsonStr)
-      }else{
-        val partitionKey = db+"."+table+".no_pk"
-        var jsonStr = gson.toJson(jsonElement)
         if (columnMaxLength != "") {
           for (item <- columnMaxLength.split("\\|")) {
             val col = item.split("=")(0)
             val maxLength = item.split("=")(1).toInt
-            val pattern = s""""${col}":"(.*?)"""".r
-            val replacedStr = pattern.replaceAllIn(jsonStr, m => {
-              val tmp = m.group(1)
-              if (tmp != "" && tmp != null && tmp.length >= maxLength) {
-                val res = tmp.substring(0, maxLength)
-                s""""${col}":"""" + res + "\""
-              } else {
-                s""""${col}":"""" + tmp + "\""
+            var modifyKey = ""
+            if (op == "d") {
+              modifyKey = "before"
+            } else {
+              modifyKey = "after"
+            }
+            val modifyJsonObj = jsonElement.getAsJsonObject.get(modifyKey).getAsJsonObject
+            if (modifyJsonObj.get(col) != null && !modifyJsonObj.get(col).isJsonNull) {
+              val colValue = modifyJsonObj.get(col).getAsString
+              if (colValue != "" && colValue != null && colValue.length >= maxLength) {
+                modifyJsonObj.addProperty(col, colValue.substring(0, maxLength))
               }
-            })
-            jsonStr = replacedStr
+            }
           }
         }
+        val partitionKey = db+"."+table+"."+pkValue.mkString(".")
+        val jsonStr = gson.toJson(jsonElement)
+        CDCModel.CDCKafkaModel(db,table,partitionKey,jsonStr)
+      }else{
+        val partitionKey = db+"."+table+".no_pk"
+        if (columnMaxLength != "") {
+          for (item <- columnMaxLength.split("\\|")) {
+            val col = item.split("=")(0)
+            val maxLength = item.split("=")(1).toInt
+            var modifyKey = ""
+            if (op == "d") {
+              modifyKey = "before"
+            } else {
+              modifyKey = "after"
+            }
+            val modifyJsonObj = jsonElement.getAsJsonObject.get(modifyKey).getAsJsonObject
+            if (modifyJsonObj.get(col) != null && !modifyJsonObj.get(col).isJsonNull) {
+              val colValue = modifyJsonObj.get(col).getAsString
+              if (colValue != "" && colValue != null && colValue.length >= maxLength) {
+                modifyJsonObj.addProperty(col, colValue.substring(0, maxLength))
+              }
+            }
+          }
+        }
+        val jsonStr = gson.toJson(jsonElement)
         CDCModel.CDCKafkaModel(db,table,partitionKey,jsonStr)
       }
     })
