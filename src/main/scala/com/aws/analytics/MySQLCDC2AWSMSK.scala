@@ -247,6 +247,11 @@ object MySQLCDC2AWSMSK {
     prop.setProperty("decimal.handling.mode","string")
     prop.setProperty("bigint.unsigned.handling.mode", "long")
 
+    var splitSize = 8096
+    if (params.chunkSize!="" && params.chunkSize!=null){
+      splitSize = params.chunkSize.toInt
+    }
+
     MySqlSource.builder[String]
       .hostname(params.host.split(":")(0))
       .port(params.host.split(":")(1).toInt)
@@ -258,6 +263,7 @@ object MySQLCDC2AWSMSK {
       .serverId(params.serverId)
       .serverTimeZone(params.serverTimeZone)
       .debeziumProperties(prop)
+      .splitSize(splitSize)
       .includeSchemaChanges(false)
       .deserializer(new JsonDebeziumDeserializationSchema(false)).build
   }

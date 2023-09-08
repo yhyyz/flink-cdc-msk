@@ -79,19 +79,19 @@ object MySQLCDC2AWSMSK {
 //    val chkConfig = env.getCheckpointConfig
 //    chkConfig.setExternalizedCheckpointCleanup(ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION)
 //    chkConfig.setCheckpointStorage(new FileSystemCheckpointStorage("file:///Users/chaopan/Desktop/checkpoint/"))
-
+      // 20971520
     //{"before":null,"after":{"pid":1,"pname":"prodcut-001","pprice":"125.12","create_time":"2023-02-14T03:16:38Z","modify_time":"2023-02-14T03:16:38Z"},"source":{"version":"1.6.4.Final","connector":"mysql","name":"mysql_binlog_source","ts_ms":1678634463000,"snapshot":"false","db":"test_db","sequence":null,"table":"product_01","server_id":57330068,"gtid":null,"file":"mysql-bin-changelog.007670","pos":804,"row":0,"thread":null,"query":null},"op":"c","ts_ms":1678634463898,"transaction":null}
     val mySqlSource = createCDCSource(params)
     val source:DataStreamSource[String] = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysql cdc source")
 
     val mapSource = source.rebalance.map(line => {
+      try {
       val jsonElement = JsonParser.parseString(line)
       val jsonElementSource = JsonParser.parseString(line).getAsJsonObject.get("source")
       val db = jsonElementSource.getAsJsonObject.get("db").getAsString
       val table = jsonElementSource.getAsJsonObject.get("table").getAsString
       val op = jsonElement.getAsJsonObject.get("op").getAsString
       // get primary key columns from config
-
       var pk = ""
       var columnMaxLength = ""
       breakable {
@@ -134,8 +134,7 @@ object MySQLCDC2AWSMSK {
             }
           }
         }
-        val jsonStr = gson.toJson(jsonElement)
-        CDCModel.CDCKafkaModel(db, table, partitionKey, jsonStr)
+        CDCModel.CDCKafkaModel(db, table, partitionKey,  gson.toJson(jsonElement))
       } else {
         val partitionKey = db + "." + table + ".no_pk"
         if (columnMaxLength != "") {
@@ -157,10 +156,17 @@ object MySQLCDC2AWSMSK {
             }
           }
         }
-        val jsonStr = gson.toJson(jsonElement)
-        CDCModel.CDCKafkaModel(db, table, partitionKey, jsonStr)
+        CDCModel.CDCKafkaModel(db, table, partitionKey, gson.toJson(jsonElement))
       }
-    })
+      } catch {
+        case ex: Exception => {
+          log.error("my_error: "+ex.getMessage)
+//          log.error("error line:" + line)
+//          println("error line:" + line)
+          null
+        }
+      }
+    }).filter(line=>line!=null)
 //   mapSource.print().setParallelism(1)
     mapSource.sinkTo(createKafkaSink(params))
     env.execute("MySQL Snapshot + Binlog + MSK")
@@ -243,6 +249,10 @@ object MySQLCDC2AWSMSK {
     val prop = new Properties()
     prop.setProperty("decimal.handling.mode","string")
     prop.setProperty("bigint.unsigned.handling.mode", "long")
+    var splitSize = 8096
+    if (params.chunkSize != "" && params.chunkSize != null) {
+      splitSize = params.chunkSize.toInt
+    }
 
     MySqlSource.builder[String]
       .hostname(params.host.split(":")(0))
@@ -254,6 +264,7 @@ object MySQLCDC2AWSMSK {
       .startupOptions(startPos)
       .serverId(params.serverId)
       .serverTimeZone(params.serverTimeZone)
+      .splitSize(splitSize)
       .debeziumProperties(prop)
       .includeSchemaChanges(false)
       .deserializer(new JsonDebeziumDeserializationSchema(false)).build

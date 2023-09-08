@@ -11,7 +11,11 @@
 ```
 
 #### 更新
-1. 2023-08-14 增加对指定字段进行长度截取
+* 2023-09-08 增加对指定字段进行长度截取
+```shell
+加入-chunk_size参数,默认值8096,全量阶段如果表比较大,表的单行数据比较大,产生OOM时可以调小该值
+```
+* 2023-08-14 增加对指定字段进行长度截取
 ```shell
 -table_pk 参数中指定column_max_length参数,col1=10|col2=10,表示col1列保留10个字符,col2列保留10个字符,多个列以竖线分割,注意-table_pk的json参数需要用反斜杠转义,例子如下
 '[{\"db\":\"test_db\",\"table\":\"product\",\"primary_key\":\"id\",\"column_max_length\":\"col1=10|col2=10\"}]'
@@ -39,6 +43,7 @@
 -table_pk [{"db":"test_db","table":"product","primary_key":"pid"},{"db":"test_db","table":"product_01","primary_key":"pid"}] # 需要同步的表的主键
 # max.request.size 默认1MB,这里设置的10MB
 -kafka_properties 'max.request.size=1073741824,xxxx=xxxx' # kafka生产者参数,多个以逗号分隔
+-chunk_size 8090 # 默认值8096，全量阶段如果表比较大，表的单行数据比较大，产生OOM时，可以调小该值
 
 # KDA Console参数与之相同，去掉参数前的-即可 
 # KDA种的参数组ID为: FlinkAppProperties
@@ -69,13 +74,8 @@
 ```sh
 mvn clean package -Dscope.type=provided
 
-# MySQL CDC
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mysql-cdc-msk-1.0-SNAPSHOT-202305242102.jar
-# mysql cdc 支持配置指定binlog位置或者指定时间戳,支持EMR on EC2. class:  com.aws.analytics.emr.MySQLCDC2AWSMSK 
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308082144.jar 
-# mysql cdc 支持设置字段最大长度
-wget  https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar
-
+# mysql cdc
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202309081202.jar
 # mongo cdc
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
@@ -117,6 +117,7 @@ sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd8
 -checkpoint_dir s3://${s3_bucket_name}/flink/checkpoint/test/ \
 -parallel 4 \
 -kafka_properties 'max.request.size=1073741824' 
+-chunk_size 8090 # 默认值8096，全量阶段如果表比较大，表的单行数据比较大，产生OOM时，可以调小该值
 # max.request.size 默认1MB,这里设置的10MB
 
 # 如果从savepoint或者checkpoint恢复作业，flink run -s 参数指定savepoint或者最后一次checkpoint目录
@@ -173,6 +174,7 @@ s3_bucket_name="panchao-data"
 -checkpoint_dir s3://${s3_bucket_name}/flink/checkpoint/test/ \
 -parallel 4 \
 -kafka_properties 'max.request.size=1073741824' \
+-chunk_size 8090 # 默认值8096，全量阶段如果表比较大，表的单行数据比较大，产生OOM时，可以调小该值
 # max.request.size 默认1MB,这里设置的10MB,多个参数逗号分隔
 
 # 如果从savepoint或者checkpoint恢复作业，/home/hadoop/flink-1.15.4/bin/flink  run -s 参数指定savepoint或者最后一次checkpoint目录

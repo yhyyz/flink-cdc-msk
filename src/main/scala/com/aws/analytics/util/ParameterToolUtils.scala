@@ -35,8 +35,10 @@ object ParameterToolUtils {
     val checkpointDir = parameter.get("checkpoint_dir")
     val parallel = parameter.get("parallel")
     val kafkaProperties = parameter.get("kafka_properties")
+    val chunkSize = parameter.get("chunk_size")
 
-    val params = ParamsModel.MySQLCDC2MSKParamsForEMR.apply(projectEnv, disableChaining, deliveryGuarantee, host, username, password, position, dbList, tbList, serverId, serverTimeZone, kafkaBroker, topic, topicPrefix, tablePK,checkpointInterval,checkpointDir,parallel,kafkaProperties)
+    val params = ParamsModel.MySQLCDC2MSKParamsForEMR.apply(projectEnv, disableChaining, deliveryGuarantee, host, username, password, position, dbList, tbList, serverId, serverTimeZone, kafkaBroker, topic, topicPrefix,
+      tablePK,checkpointInterval,checkpointDir,parallel,kafkaProperties,chunkSize)
     params
   }
   def getMySQLCDC2MSKParams(parameter: ParameterTool): ParamsModel.MySQLCDC2MSKParams = {
@@ -56,7 +58,9 @@ object ParameterToolUtils {
     val topicPrefix = parameter.get("topic_prefix")
     val tablePK = parameter.get("table_pk")
     val kafkaProperties = parameter.get("kafka_properties")
-    val params = ParamsModel.MySQLCDC2MSKParams.apply(projectEnv,disableChaining,deliveryGuarantee,host,username,password,position,dbList,tbList,serverId,serverTimeZone,kafkaBroker,topic,topicPrefix,tablePK,kafkaProperties)
+    val chunkSize = parameter.get("chunk_size")
+    val params = ParamsModel.MySQLCDC2MSKParams.apply(projectEnv,disableChaining,deliveryGuarantee,host,username,password,position,dbList,tbList,serverId,serverTimeZone,kafkaBroker,
+      topic,topicPrefix,tablePK,kafkaProperties,chunkSize)
     params
   }
 
