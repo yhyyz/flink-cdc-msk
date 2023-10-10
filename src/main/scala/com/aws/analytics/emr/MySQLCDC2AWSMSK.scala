@@ -85,7 +85,6 @@ object MySQLCDC2AWSMSK {
     val source:DataStreamSource[String] = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysql cdc source")
 
     val mapSource = source.rebalance.map(line => {
-      try {
       val jsonElement = JsonParser.parseString(line)
       val jsonElementSource = JsonParser.parseString(line).getAsJsonObject.get("source")
       val db = jsonElementSource.getAsJsonObject.get("db").getAsString
@@ -158,16 +157,8 @@ object MySQLCDC2AWSMSK {
         }
         CDCModel.CDCKafkaModel(db, table, partitionKey, gson.toJson(jsonElement))
       }
-      } catch {
-        case ex: Exception => {
-          log.error("my_error: "+ex.getMessage)
-//          log.error("error line:" + line)
-//          println("error line:" + line)
-          null
-        }
-      }
     }).filter(line=>line!=null)
-//   mapSource.print().setParallelism(1)
+//    mapSource.print().setParallelism(1)
     mapSource.sinkTo(createKafkaSink(params))
     env.execute("MySQL Snapshot + Binlog + MSK")
   }
@@ -249,6 +240,10 @@ object MySQLCDC2AWSMSK {
     val prop = new Properties()
     prop.setProperty("decimal.handling.mode","string")
     prop.setProperty("bigint.unsigned.handling.mode", "long")
+
+    prop.put("converters", "CDCDateConvert")
+    prop.put("CDCDateConvert.type", "com.aws.analytics.tools.DebeziumConverter")
+    prop.put("CDCDateConvert.database.type", "mysql")
     var splitSize = 8096
     if (params.chunkSize != "" && params.chunkSize != null) {
       splitSize = params.chunkSize.toInt

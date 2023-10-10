@@ -247,6 +247,10 @@ object MySQLCDC2AWSMSK {
     prop.setProperty("decimal.handling.mode","string")
     prop.setProperty("bigint.unsigned.handling.mode", "long")
 
+    prop.put("converters", "CDCDateConvert")
+    prop.put("CDCDateConvert.type", "com.aws.analytics.tools.DebeziumConverter")
+    prop.put("CDCDateConvert.database.type", "mysql")
+
     var splitSize = 8096
     if (params.chunkSize!="" && params.chunkSize!=null){
       splitSize = params.chunkSize.toInt
