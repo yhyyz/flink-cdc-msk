@@ -11,6 +11,8 @@
 ```
 
 #### 更新
+* 2023-10-10 增加Debezium Custom Converter处理Datetime类型转换和时区问题
+
 * 2023-09-08 增加对指定字段进行长度截取
 ```shell
 加入-chunk_size参数,默认值8096,全量阶段如果表比较大,表的单行数据比较大,产生OOM时可以调小该值
@@ -75,7 +77,8 @@
 mvn clean package -Dscope.type=provided
 
 # mysql cdc
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202309081202.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202310101435.jar
+
 # mongo cdc
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
@@ -93,7 +96,7 @@ sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/
 
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202310101435.jar
 
 s3_bucket_name="panchao-data"
 sudo flink run -s s3://${s3_bucket_name}/flink/checkpoint/test/eb2bebad3cc51afd83183a8b38a927a6/chk-3/  -m yarn-cluster  -yjm 1024 -ytm 2048 -d -ys 4  \
@@ -147,7 +150,7 @@ sed -i -e '$a\restart-strategy: fixed-delay ' /home/hadoop/flink-1.15.4/conf/fli
 ```
 ##### run job
 ```sh
-wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202308181027.jar
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202310101435.jar
 
 
 export HADOOP_CLASSPATH=`hadoop classpath`
