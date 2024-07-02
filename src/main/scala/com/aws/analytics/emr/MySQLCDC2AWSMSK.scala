@@ -106,7 +106,7 @@ object MySQLCDC2AWSMSK {
       }
       if (pk != "") {
         val pkValue = ArrayBuffer[String]()
-        for (i <- pk.split("\\.")) {
+        for (i <- pk.split(",")) {
           if (op == "d") {
             pkValue.append(jsonElement.getAsJsonObject.get("before").getAsJsonObject.get(i).getAsString)
           } else {
