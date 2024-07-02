@@ -102,12 +102,8 @@ cd /home/ec2-user/kafka
 ```
 * flink job
 ```sh
-# s3 plugin
-sudo mkdir -p /usr/lib/flink/plugins/s3/
-sudo mv  /usr/lib/flink/opt/flink-s3-fs-hadoop-1.15.1.jar /usr/lib/flink/plugins/s3/
 # disable check-leaked-classloader
 sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/flink-conf.yaml
-
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202406271942.jar
 
 s3_bucket_name="flink-cdc-test"
@@ -135,7 +131,6 @@ sudo flink run  -m yarn-cluster  -yjm 4096 -ytm 6144 -d -ys 1  \
 -chunk_size 4000
 
 ```
-
 
 ##### EMR 6.8.0+的flink 1.15版本
 ```sh
