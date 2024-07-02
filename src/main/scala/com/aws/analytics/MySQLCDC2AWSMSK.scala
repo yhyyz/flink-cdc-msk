@@ -56,6 +56,7 @@ object MySQLCDC2AWSMSK {
       }
       parameter = ParameterToolUtils.fromApplicationProperties(applicationProperties)
     }
+
     val params = ParameterToolUtils.getMySQLCDC2MSKParams(parameter)
     log.info("cdc2kafka: " + params.toString)
     if (params.disableChaining=="true"){
@@ -111,7 +112,7 @@ object MySQLCDC2AWSMSK {
       }}
       if (pk !=""){
         val pkValue = ArrayBuffer[String]()
-        for (i <-pk.split("\\.")){
+        for (i <-pk.split(",")){
           if (op=="d"){
             pkValue.append(jsonElement.getAsJsonObject.get("before").getAsJsonObject.get(i).getAsString)
           }else{

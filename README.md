@@ -11,8 +11,8 @@
 ```
 
 #### 更新
+* 2024-07-02 EMR-6.11.0 flink-1.16.0 tpcc测试
 * 2023-10-10 增加Debezium Custom Converter处理Datetime类型转换和时区问题
-
 * 2023-09-08 增加对指定字段进行长度截取
 ```shell
 加入-chunk_size参数,默认值8096,全量阶段如果表比较大,表的单行数据比较大,产生OOM时可以调小该值
@@ -79,12 +79,64 @@ mvn clean package -Dscope.type=provided
 # mysql cdc
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202310101435.jar
 
+# mysql cdc flink -1.16.0
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202406271942.jar
+
+
 # mongo cdc
 wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-mongo-cdc-msk-1.0-SNAPSHOT-202305242104.jar
 
 ```
    
 #### EMR on EC2
+##### EMR 6.11.0的flink 1.16版本
+###### tpcc test
+* msk topic
+```shell
+export bs="b-1.cdctestnew.xxxx.kafka.ap-northeast-1.amazonaws.com:9092"
+cd /home/ec2-user/kafka
+./bin/kafka-topics.sh --create --bootstrap-server $bs --replication-factor 2 --partitions 12 --topic flink_cdc_test
+./bin/kafka-topics.sh --describe --bootstrap-server $bs --topic flink_cdc_test
+./bin/kafka-console-consumer.sh --bootstrap-server  $bs  --topic cdc_test --from-beginning |more
+./bin/kafka-consumer-groups.sh --bootstrap-server $bs --describe  --group cdc-redshift-ec2-g1
+```
+* flink job
+```sh
+# s3 plugin
+sudo mkdir -p /usr/lib/flink/plugins/s3/
+sudo mv  /usr/lib/flink/opt/flink-s3-fs-hadoop-1.15.1.jar /usr/lib/flink/plugins/s3/
+# disable check-leaked-classloader
+sudo sed -i -e '$a\classloader.check-leaked-classloader: false' /etc/flink/conf/flink-conf.yaml
+
+wget https://dxs9dnjebzm6y.cloudfront.net/tmp/flink-cdc-msk-1.0-SNAPSHOT-202406271942.jar
+
+s3_bucket_name="flink-cdc-test"
+sudo flink run  -m yarn-cluster  -yjm 4096 -ytm 6144 -d -ys 1  \
+-c  com.aws.analytics.emr.MySQLCDC2AWSMSK \
+/home/hadoop/flink-cdc-msk-1.0-SNAPSHOT-202406271942.jar \
+-project_env prod \
+-disable_chaining true \
+-delivery_guarantee at_least_once \
+-host flink-cdc-new-instance-1.xxxxx.ap-northeast-1.rds.amazonaws.com:3306 \
+-username xxx \
+-password xxx \
+-db_list tpcc \
+-tb_list tpcc.warehouse,tpcc.district,tpcc.customer,tpcc.new_orders,tpcc.orders,tpcc.order_line,tpcc.item,tpcc.stock \
+-server_id 200200-200300 \
+-server_time_zone Etc/GMT \
+-position latest \
+-kafka_broker b-1.xxxxxx.c2.kafka.ap-northeast-1.amazonaws.com:9092 \
+-topic flink_cdc_test \
+-table_pk '[{\"db\":\"tpcc\",\"table\":\"warehouse\",\"primary_key\":\"w_id\"},{\"db\":\"tpcc\",\"table\":\"district\",\"primary_key\":\"d_w_id,d_id\"},{\"db\":\"tpcc\",\"table\":\"customer\",\"primary_key\":\"c_w_id,c_d_id,c_id\"},{\"db\":\"tpcc\",\"table\":\"new_orders\",\"primary_key\":\"no_w_id,no_d_id,no_o_id\"},{\"db\":\"tpcc\",\"table\":\"orders\",\"primary_key\":\"o_w_id,o_d_id,o_id\"},{\"db\":\"tpcc\",\"table\":\"order_line\",\"primary_key\":\"ol_w_id,ol_d_id,ol_o_id,ol_number\"},{\"db\":\"tpcc\",\"table\":\"item\",\"primary_key\":\"i_id\"},{\"db\":\"tpcc\",\"table\":\"stock\",\"primary_key\":\"s_w_id,s_i_id\"}]' \
+-checkpoint_interval 60 \
+-checkpoint_dir s3://${s3_bucket_name}/flink/checkpoint/test/ \
+-parallel 6 \
+-kafka_properties 'max.request.size=1073741824' \
+-chunk_size 4000
+
+```
+
+
 ##### EMR 6.8.0+的flink 1.15版本
 ```sh
 # s3 plugin
